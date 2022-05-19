@@ -10,7 +10,7 @@ version
 ```
 
 All the libraries used in this document.
-```{r}
+```{r, message = FALSE}
 #install.packages("tidyverse")
 library(tidyverse)
 #install.packages("tidytext")
@@ -21,8 +21,17 @@ library(dplyr)
 library(stringr)
 #install.packages("janitor")
 library(janitor)
+#install.packages("lubridate")
+library(lubridate) # deal with dates
 
 ```
+
+# Sentiment Analysis
+
+The goal is to infer the emotional meaning behind the authors words.  In the 1980s Robert Plutchik created a classification framework for emotions based on 2 evolutionarily created emotions *{anger, disgust, sadness, surprise, fear, trust, joy, anticipation}*.  Other emotions are combinations of these.  Classifying text according to these emotions is challenging and often subjective.  Instead people often use polarity *(positive, neutral, negative)*.  Overall these tend to be easier and have higher annotator agreement.  
+
+
+
 
 # Sentiment Analysis Typical Strategies
 - **Easy**: Use a lexicon of positive / negative words and count occurence within each article. This is quick and easy, but it is hard to get a lexicon that is really tuned to your goals and era.  By default this ignores context ( _costs *fell*_ "+", _profits *fell*_ "-"), and modifiers ( _my French comprehension is *not bad*_ "+", _my French spelling is *not good*_ "-").
@@ -33,7 +42,7 @@ library(janitor)
 # Obtain Data Source.  Consider this carefully
 
 Maybe from here:
-```{r}
+```{r, eval = FALSE}
 # https://data.world/crowdflower/economic-news-article-tone
 # data is licenced as 'public domain'
 news_data <- read.csv("https://query.data.world/s/irm45kkldlexxiphchk2yena6rllpn", header=TRUE, stringsAsFactors=FALSE) |> 
@@ -48,14 +57,33 @@ news_data |> glimpse()
 OR here:
 Take a look at using Bank of Canada speeches.  The [robots](https://www.bankofcanada.ca/robots.txt) file looks good.  The other place to look for permission is in the webpage [terms and conditions](https://www.bankofcanada.ca/terms/).   We can use Bank of Canada speeches as long as we provide them free of charge (or otherwise obtain the Bank's permission) and attribute the Bank of Canada as the source.  We must also _exercise due diligence in ensuring the accuracy of any content_.:
 
-Let's take the latest speech from Governor Tiff Macklem and split it into sentences.
-
+Let's take a look at speeches for the House of Commons Standing Committee on Finance in 2018 vs 2022 so far.  Note that in both cases this is only 2 speeches. We could compare one speech from each, but in what follows we end up with low counts in some categories.  We could have combined sentiment categories, but taking more speeches also provides a snapshot of the economy.
 
 ```{r}
-url = "https://www.bankofcanada.ca/2022/04/opening-statement-2022-04-13/"
+new_year = 2022
+urls_for_speeches_from_2022 = c( 
+   "https://www.bankofcanada.ca/2022/04/opening-statement-250422/",
+   "https://www.bankofcanada.ca/2022/03/opening-statement-030322/")
+old_year = 2018
+urls_for_speeches_from_2018 = c(
+   "https://www.bankofcanada.ca/2018/10/opening-statement-october-30-2018/",
+   "https://www.bankofcanada.ca/2018/04/opening-statement-april-23-2018/" )
+
+```
+
+```{r, eval = TRUE, echo = FALSE, message = FALSE}
+all_speeches = read_csv(file = "bank-speeches/BOC_speeches.csv")|> mutate(date = as_date(date))
+
 
 #extract speeches.
+new_speech = all_speeches |> 
+   filter(venue == "House of Commons Standing Committee on Finance" & date < lubridate::ymd("2022-12-31") & date > lubridate::ymd("2022-01-01")) |>
+   select(speech_text, date)
 
+old_speech = all_speeches |> 
+   filter(venue == "House of Commons Standing Committee on Finance" & date < lubridate::ymd("2018-12-31") & date > lubridate::ymd("2018-01-01"))|>
+   select(speech_text, date)
+#old_speech = all_speeches |> filter(venue == "House of Commons Standing Committee on Finance" & date == lubridate::ymd("2016-04-19")) |> select(speech_text, date)
 
 ```
 
@@ -73,13 +101,12 @@ Note that for the sake of time I'm glossing over several steps.
 
 Let's consider lexicons!
 
-Lexicons are a list of words with an associated sentiment.
-
+Lexicons are a list of words with an associated sentiment.  Although the set of English words is massive, typically sentiment lexicons have only a few thousand words.  In most cases people  convey information using a fairly small subset of language, so lexicons tend to do well most of the time. 
 The idea is to  match terms to a sentiment lexicon.  These have been built for a specific purpose, but hopefully such a sentiment will be useful for us.
 
 There is no way of separating out data cleaning from data analysis.
 
-Sentiment Analysis is all about comparing words in a document to words in a sentiment list. The best is to build your own lexicon that suits your needs, but that's expensive and slow. There are 3 popular lexicons:
+Sentiment Analysis is all about comparing words in a document to words in a sentiment list. The best is to build your own lexicon that suits your needs, but that's expensive and slow. There are several popular lexicons:
 
 - AFINN from Finn Årup Nielsen,
 - bing from Bing Liu and collaborators, and
@@ -109,45 +136,54 @@ table(get_sentiments("nrc")$sentiment)
 Lexicon of negative, positive, uncertainty, litigious, strong modal, weak modal, and constraining terms from the Loughran-McDonald financial dictionary see [here](https://sraf.nd.edu/loughranmcdonald-master-dictionary/) and the research paper
 _Loughran and McDonald (2011) When is a Liability not a Liability? Textual Analysis, Dictionaries, and 10-Ks, Journal of Finance, 66:1, 35-65_
 
-As a bonus, the dataset also includes the number of syllables.
-
 ```{r}
-LM_lex = read.csv("https://drive.google.com/file/d/17CmUZM9hGUdGYjCXcjQLyybjTrcjrhik/view?usp=sharing", header = TRUE, stringsAsFactors=FALSE) 
-
-# or the cheap version:
+# The format is a list:
 lapply(SentimentAnalysis::DictionaryLM,head)
 lapply(SentimentAnalysis::DictionaryLM,length)
 
-```
+# let's format it as a data.frame
+LMlex = rbind(
+   cbind(SentimentAnalysis::DictionaryLM$positive, "positive"),
+   cbind(SentimentAnalysis::DictionaryLM$negative, "negative"),
+   cbind(SentimentAnalysis::DictionaryLM$uncertainty, "uncertainty")) 
+colnames(LMlex) = c("term", "polarity")
+LMlex = LMlex |>as_tibble()
+
 
 ```
 
-Note that each lexicon has a different length and words evolve in meaning over time.  Sick used to be bad, then it was good, now it's so bad that we stay home most of the time.
 
+
+Note that each lexicon has a different length and words evolve in meaning over time.  Sick used to be bad, then it was good, now it's so bad that we spent two years staying the blazes home.
+
+
+## Sentiment
 
 
 Back to sentiments, let's count the _nrc_ category occurences:
 
 ```{r}
-Lyrics1 = LyricsJB1 %>% mutate(album= "My world")
-Lyrics2 = LyricsJB2 %>% mutate(album= "Changes")
-Lyrics = rbind(Lyrics1,Lyrics2) %>%
-         unnest_tokens(output = word,input = lyric, token = "words") %>%
+
+Speeches = rbind(new_speech,old_speech) |>
+         mutate(date = year(date) )|> # simplify date to just the year
+         unnest_tokens(output = word,input = speech_text, token = "words") |>
          inner_join(get_sentiments("nrc") )
-#Count the occurrence with each album
-Sents = Lyrics %>%group_by(album)%>%count(sentiment)
 
-Sents %>% summarise(sum(n))
+#Count the occurrence with each speech
+Sents = Speeches |> group_by(date) |> count(sentiment)
 
-Sents %>% filter(!(sentiment =="positive"|sentiment=="negative")) %>%
-ggplot(aes(fill=sentiment, y=n, x=album)) + 
-    geom_bar(position="fill", stat="identity")
+Sents |> summarise(sum(n))
+
+Sents |> filter(!(sentiment =="positive"|sentiment=="negative")) |>
+ggplot(aes(fill=sentiment, y=n, x=as.factor(date))) + 
+    geom_bar(position="fill", stat="identity")+
+    xlab("date")
 ```
 
 # Statistical Test
 
 
-Consider the Null Hypothesis that Justin Bieber has the same sentiment distribution between 'My World' and 'Changes'.  The alternative is that there is an unspecified difference in distribution.  This can be tested through a Chi-Square test for categorical distributions with $N_r$ rows and $N_c$ columns.
+Consider the Null Hypothesis that these economic speeches have  same sentiment distribution between 2017 and 2022.  The alternative is that there is an unspecified difference in distribution.  This can be tested through a Chi-Square test for categorical distributions with $N_r$ rows and $N_c$ columns.
 With observed counts $O_{ij}$ in row $i$ and column $j$ of the table, the Expected counts are the data assuming the only difference is the total count; 
 \[E_{ij}= (\mbox{row i total*column j total}) / N_{total}\]
 This gives the test statistic:
@@ -156,34 +192,43 @@ This gives the test statistic:
 
 *Note1* that we will remove the categories "positive" and "negative" since these are supersets of the other _nrc_ categories.
 
-*Note2* The basic assumption is that these songs are 'bags of words' that Bieber randomly samples into lyrics.  Essentially Bieber has some sentiment distribution at a given time and the lyrics are a random sample thereof.
+*Note2* The basic assumption is that these speeches are 'bags of words' that speeches are literally random samples of words rather than prose.  Essentially the Bank of Canada has some sentiment distribution at a given time and the words used in speeches are a random sample thereof.
+
+*Note3* This is really just illustrative of how to analyze two time points, but related tools could track extend to regression or time series tools and consider all speeches.
 
 ```{r}
-#Cross-tab table:
 
-MyTable = janitor::tabyl(Lyrics%>% filter(!(sentiment =="positive"|sentiment=="negative")) %>%
-      group_by(album)   ,sentiment,album)
+#Cross-tab table
+# this counts the occurences, so we don't use the 'summed' table above, but instead use the tibble that we joined on the sentiments:
+
+MyTable = janitor::tabyl(Speeches|> filter(!(sentiment =="positive"|sentiment=="negative")) |>
+      group_by(date)   ,sentiment,date)
+
+MyTable
 ```
 
 
-The janitor library makes it easy to build tables that look nice and can format data with row or column percents and counts.
+The janitor library makes it easy to build tables that look nice and can format data with row or column percents and counts.  As a side note it also can put in row / column / total percentages, 
 
 ```{r}
-MyTable %>% adorn_totals("row")
-MyTable %>% adorn_percentages("col")%>%  adorn_ns()
 
-MyTable %>% adorn_percentages("row")
-MyTable %>% adorn_percentages("col")
-MyTable %>% adorn_percentages("all")%>%  adorn_ns()
+MyTable |> adorn_totals("row") # add a row for totals
+
+MyTable |> adorn_percentages("col")# report column percentages rather than counts
+MyTable |> adorn_percentages("all")|>  adorn_ns() # report percentage of total and also counts
+
+```
 
 
+#The Statistical Test:
+
+```{r}
 #Chi-Square test:
 chisq.test(MyTable)
+
+
 ```
-
-
-There appears to be strong evidence of a change in distribution of sentiments between Justin Bieber Albums.
-
+Note that when the counts within a table category are small, generally <5, the results may not be accurate.  It might make more sense to combine a few sentiments for the purposes of the test.
 
 
 
@@ -191,20 +236,102 @@ There appears to be strong evidence of a change in distribution of sentiments be
 # Going furhter: Improving the lexicon by considering negation
 
 Using a lexicon, consider the phrase: 
-- "my homemade bread is not bad"  
+- "This workshop is not too bad."  
 A lexicon based approach would see the word _bad_ and consider the sentence to be negative, whereas _not bad_ is actually pretty good all things considered.
 
-To keep it simple consider just the _bing_ lexicon and first look for negation.
-First we will split the lyrics into bigrams, then find places where the first word is a common negation.
 
-The bigram object _Biebgrams_ splits the text into sliding groupings of two word pairs. From there we split apart the bigram and perform sentiment analysis on just the second word.  To get around this we re introduce a NA at the start of each line.  Otherwise the first word of each column (here appearing in column "preword") will be ignored by the sentiment analysis.  Hopefully this makes more sense when you look at the steps.
+Library *qdap* searches for the positive or negative *word* and then builds a window around it *[word-4,word+2]*.  Within that window it removes neutral words and the polarized word, then extracts amplifier and negation words. The polarity score is tallied within the window and divided by the square root of the total words in teh sentence to come up with a polarity score for the sentence.
+
 
 ```{r}
+
+
+#### use library(qdap) instead
+# also, for fun use a binary lexicon such as LMlex or bing
+
+# Start by defining the basic polarity lexicon:
+# inputs are a vector of positives, vector of negatives,...
+positives = LMlex  |> filter(polarity =="positive") |> pull(term)
+negatives = LMlex  |> filter(polarity =="negative") |> pull(term)
+# this is a great place to add in more terms...
+# negatives = c(negatives, "unemployment","inflation")
+# positives = c(positives, "employment")
+
+# put them into the sentiment lookup hash table
+# note that we could set the positive and negative weights:
+polarity_frame = sentiment_frame(positives, negatives)
+
+# try a few sentences and extract the polarity:
+polarity("This workshop is bad."       , polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is not great." , polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is not too bad", polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is not bad."   , polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is ok"         , polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is good enough", polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is great"      , polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is really good", polarity.frame = polarity_frame)$all$polarity
+
+
+```
+
+
+# More About Cleaning Text
+
+A general purpose lexicon will never be as good as a curated list for the domain.  The text also needs a lot of cleaning.  Here are some steps towards cleaning and then splitting into sentences.
+
+
+```{r, message = FALSE, warning = FALSE}
+
+#The data:
+speeches_modified = rbind(new_speech,old_speech) |>
+         mutate(date = year(date) ) # simplify date to just the year
+
+# We can run an automatic check for strange things,
+# This gives suggestions about potential problems
+# check_text(speeches_modified[,"speech_text"])
+
+# Here it suggests a few functions that could help.  Replacing numbers with words, handling some symbols like '%' and "½", and dealing with unexpected ending to sentences.
+
+# Alternatively check the spelling interactively as it skims through the text, but this is often too sensitive and flags jargon as typos:
+# check_spelling_interactive(speeches_modified$speech_text)
+
+
+# some basic cleaning steps as suggested from check_text.
+speeches_modified = speeches_modified |>
+         mutate(speech_text = replace_number(speech_text))|> # replace numbers by spelling them out as words.
+         mutate(speech_text = str_replace_all(speech_text, pattern = "(\t)|(\n)|(\r)", replacement = ""))|> # poor encoding for spaces, line breaks, paragraphs
+         mutate(speech_text = str_replace_all(speech_text, pattern = "\\%", replacement = " percent"))|> # symbols
+         mutate(speech_text = str_replace_all(speech_text, pattern = "½", replacement = " a half")) |>
+         mutate(speech_text = str_replace_all(speech_text, pattern = "¼", replacement = " a quarter"))|> 
+         mutate(speech_text = add_incomplete(speech_text)) |># handing potentially incomplete sentences
+         
+
+# check_text(speeches_modified[,"speech_text"])
+
+
+# now split into sentences.
+
+split_speech = sentSplit(speeches_modified,"speech_text")
+
+
+(out = with(split_speech, polarity(speech_text, grouping.var = "date", polarity.frame = polarity_frame)))
+
+```
+
+
+
+
+
+
+
+
+
+
 # split into bigrams, but keep the original text to make every step clear
 Biebgrams 
 
 
-Bieber = rbind(Lyrics1,Lyrics2) %>%
+Bieber = rbind(Lyrics1,Lyrics2) |>
        mutate(originalline = lyric) 
 
 # glue NA to the beginning of each string.  The result is that now all of teh original words will be used in the sentiment lexicon replacement.
@@ -213,16 +340,16 @@ Bieber$lyric = stringr::str_replace_all(Bieber$lyric, pattern="^", replacement =
 
 # Split into bigrams, separate apart the bigram into "PreWord" and "word" and perform lexicon sentiment replacement on the second term ("word") while keeping way too many interim steps for illustration:
 
-Bieber   =  Bieber %>%
-            unnest_tokens(output = bigram,input = lyric, token = "ngrams", n=2) %>%
-            mutate(originalbigram = bigram) %>%
-            separate(bigram, c("PreWord", "word"), sep = " ") %>%
+Bieber   =  Bieber |>
+            unnest_tokens(output = bigram,input = lyric, token = "ngrams", n=2) |>
+            mutate(originalbigram = bigram) |>
+            separate(bigram, c("PreWord", "word"), sep = " ") |>
             inner_join(get_sentiments("bing") ) 
 
 
 
 # find bigrams where the first word might negate the second.
-Bieber %>% filter(PreWord %in% c("not","isn't","no"))
+Bieber |> filter(PreWord %in% c("not","isn't","no"))
 # now consider which should be changed.
 
 
@@ -233,12 +360,16 @@ Bieber[which(Bieber$originalbigram=="not right") ,"sentiment"] = "negative"
 Bieber[which(Bieber$originalbigram=="no wrong"),"sentiment"] = "positive"
 Bieber[which(Bieber$originalbigram=="not trouble"),"sentiment"] = "positive"
 
-Bieber %>% filter(PreWord %in% c("not","isn't","no"))
+Bieber |> filter(PreWord %in% c("not","isn't","no"))
 
 ```
 
 If the text is expected to have a small number of typos of typos the _amatch_ function from _library(stringdist)_ will look for an approximate match rather than an exact match for strings.
 
+## Great references
+
+- Kwartler, T (2017) "Text Mining in Practice with R", Wiley 
+See especially Chapter 4 on sentiment scoring and chapter 8 on OpenNLP for parts of speech tagging.  
 
 
  
