@@ -5,25 +5,28 @@ date: "05/24/2022"
 ---
 
 Note that I am using R>4.1 which gives me access to the **|>** operator.  For reproducibility this is the R version that I am using.
-```{r}
+```{r, eval = FALSE}
 version
 ```
 
 All the libraries used in this document.
-```{r, message = FALSE}
+```{r, eval = FALSE, message = FALSE}
 #install.packages("tidyverse")
-library(tidyverse)
+library(tidyverse) # of course we're using tidyverse
 #install.packages("tidytext")
-library(tidytext)
+library(tidytext) # some text tools including basic sentiment analysis
 #install.packages("dplyr")
-library(dplyr)
+library(dplyr) 
 #install.packages("stringr")
-library(stringr)
+library(stringr) #handling strings
 #install.packages("janitor")
-library(janitor)
+library(janitor) # make tables look nice
 #install.packages("lubridate")
 library(lubridate) # deal with dates
-
+#install.packages("qdap")
+library(qdap) # handle polarization for sentiment analysis
+#install.packages("tools")
+library(tools) # to make one plot title look nice
 ```
 
 # Sentiment Analysis
@@ -33,16 +36,16 @@ The goal is to infer the emotional meaning behind the authors words.  In the 198
 
 
 
-# Sentiment Analysis Typical Strategies
+## Sentiment Analysis Typical Strategies
 - **Easy**: Use a lexicon of positive / negative words and count occurence within each article. This is quick and easy, but it is hard to get a lexicon that is really tuned to your goals and era.  By default this ignores context ( _costs *fell*_ "+", _profits *fell*_ "-"), and modifiers ( _my French comprehension is *not bad*_ "+", _my French spelling is *not good*_ "-").
 - **Medium**: Modify a lexicon by editing some terms, looking for modifiers and/or merging terms that could be considered a single word "Data_Science".  This might involve searching for modifiers, such as *not* within a few words of *bad*.  This requires some hands on effort and domain expertise.  You'll need to read some of the text.  Note that pre-processing typically makes a lot of improvements but almost always introduces some undesirable effects.  This is equivalent to manually adding some structure to the model.
-- **Bit Harder**: Label some sentences as positive / negative and build a model to figure out what it is about the sentences that define their sentiment.  Often start from something like a pre-trained *BERT* model to convert the text to numbers then use a regression-type model (neural net or boosting?) to predict sentiment.  Typically you need a lot of data. This is much better for paying attention to context, but costs more effort (labelling data and training the model).  Relies on having a well-trained (possibly domain specific) *BERT* model and that won't even be explained until later.
+- **Harder**: Label some sentences as positive / negative and build a model to figure out what it is about the sentences that define their sentiment.  Often start from something like a pre-trained *BERT* model to convert the text to numbers then use a regression-type model (neural net or boosting?) to predict sentiment.  Typically you need a lot of data. This is much better for paying attention to context, but costs more effort (labelling data and training the model).  Relies on having a well-trained (possibly domain specific) *BERT* model and making sure that the model isn't amplifying biases.
 
 
-# Obtain Data Source.  Consider this carefully
+## Obtain Data Source.  Consider this carefully
 
 Maybe from here:
-```{r, eval = FALSE}
+```{r, eval = FALSE, eval = FALSE}
 # https://data.world/crowdflower/economic-news-article-tone
 # data is licenced as 'public domain'
 news_data <- read.csv("https://query.data.world/s/irm45kkldlexxiphchk2yena6rllpn", header=TRUE, stringsAsFactors=FALSE) |> 
@@ -59,7 +62,7 @@ Take a look at using Bank of Canada speeches.  The [robots](https://www.bankofca
 
 Let's take a look at speeches for the House of Commons Standing Committee on Finance in 2018 vs 2022 so far.  Note that in both cases this is only 2 speeches. We could compare one speech from each, but in what follows we end up with low counts in some categories.  We could have combined sentiment categories, but taking more speeches also provides a snapshot of the economy.
 
-```{r}
+```{r, eval = FALSE, eval = FALSE}
 new_year = 2022
 urls_for_speeches_from_2022 = c( 
    "https://www.bankofcanada.ca/2022/04/opening-statement-250422/",
@@ -71,25 +74,26 @@ urls_for_speeches_from_2018 = c(
 
 ```
 
-```{r, eval = TRUE, echo = FALSE, message = FALSE}
+```{r, eval = FALSE,  echo = FALSE, message = FALSE}
 all_speeches = read_csv(file = "bank-speeches/BOC_speeches.csv")|> mutate(date = as_date(date))
 
 
 #extract speeches.
-new_speech = all_speeches |> 
+new_speeches = all_speeches |> 
    filter(venue == "House of Commons Standing Committee on Finance" & date < lubridate::ymd("2022-12-31") & date > lubridate::ymd("2022-01-01")) |>
-   select(speech_text, date)
-
-old_speech = all_speeches |> 
+   select(speech_text, date)|.
+   unnest_tokens(input = speech_text, output = word)
+old_speeches = all_speeches |> 
    filter(venue == "House of Commons Standing Committee on Finance" & date < lubridate::ymd("2018-12-31") & date > lubridate::ymd("2018-01-01"))|>
-   select(speech_text, date)
-#old_speech = all_speeches |> filter(venue == "House of Commons Standing Committee on Finance" & date == lubridate::ymd("2016-04-19")) |> select(speech_text, date)
+   select(speech_text, date) |>
+   unnest_tokens(input = speech_text, output = word)
+#old_speeches = all_speeches |> filter(venue == "House of Commons Standing Committee on Finance" & date == lubridate::ymd("2016-04-19")) |> select(speech_text, date)
 
 ```
 
 Note that for the sake of time I'm glossing over several steps.
 
-# Basic workflow
+## Basic workflow
 
 - get text data
 - split it into the units of observation.  Sometimes these are documents, Tweets, or sentences.
@@ -97,7 +101,7 @@ Note that for the sake of time I'm glossing over several steps.
 - Analyze!
 
 
-# Lexicon
+## Lexicon
 
 Let's consider lexicons!
 
@@ -114,19 +118,19 @@ Sentiment Analysis is all about comparing words in a document to words in a sent
 - Loughran-McDonald Financial dictionary;  
 
 _AFINN_ gives words a score between -5 and +5 rating its severity of positive or negative sentiment.
-```{r}
+```{r, eval = FALSE}
 tidytext::get_sentiments("afinn")
 hist(get_sentiments("afinn")$value)
 ```
 
 _bing_ gives a binary value of positive or negative. Neutral words are not in the list.
-```{r}
+```{r, eval = FALSE}
 tidytext::get_sentiments("bing")
 table(get_sentiments("bing")$sentiment)
 ```
 
 _nrc_ puts each word into a sentiment category.
-```{r}
+```{r, eval = FALSE}
 tidytext::get_sentiments("nrc")
 table(get_sentiments("nrc")$sentiment)
 ```
@@ -136,7 +140,7 @@ table(get_sentiments("nrc")$sentiment)
 Lexicon of negative, positive, uncertainty, litigious, strong modal, weak modal, and constraining terms from the Loughran-McDonald financial dictionary see [here](https://sraf.nd.edu/loughranmcdonald-master-dictionary/) and the research paper
 _Loughran and McDonald (2011) When is a Liability not a Liability? Textual Analysis, Dictionaries, and 10-Ks, Journal of Finance, 66:1, 35-65_
 
-```{r}
+```{r, eval = FALSE}
 # The format is a list:
 lapply(SentimentAnalysis::DictionaryLM,head)
 lapply(SentimentAnalysis::DictionaryLM,length)
@@ -154,7 +158,7 @@ LMlex = LMlex |>as_tibble()
 
 
 
-Note that each lexicon has a different length and words evolve in meaning over time.  Sick used to be bad, then it was good, now it's so bad that we spent two years staying the blazes home.
+Note that each lexicon has a different length and words might evolve in meaning over time.  Sick used to be bad, then it was good, now it's so bad that we spent two years staying the blazes home.
 
 
 ## Sentiment
@@ -162,9 +166,9 @@ Note that each lexicon has a different length and words evolve in meaning over t
 
 Back to sentiments, let's count the _nrc_ category occurences:
 
-```{r}
+```{r, eval = FALSE}
 
-Speeches = rbind(new_speech,old_speech) |>
+Speeches = rbind(new_speeches,old_speeches) |>
          mutate(date = year(date) )|> # simplify date to just the year
          unnest_tokens(output = word,input = speech_text, token = "words") |>
          inner_join(get_sentiments("nrc") )
@@ -196,7 +200,7 @@ This gives the test statistic:
 
 *Note3* This is really just illustrative of how to analyze two time points, but related tools could track extend to regression or time series tools and consider all speeches.
 
-```{r}
+```{r, eval = FALSE}
 
 #Cross-tab table
 # this counts the occurences, so we don't use the 'summed' table above, but instead use the tibble that we joined on the sentiments:
@@ -210,7 +214,7 @@ MyTable
 
 The janitor library makes it easy to build tables that look nice and can format data with row or column percents and counts.  As a side note it also can put in row / column / total percentages, 
 
-```{r}
+```{r, eval = FALSE}
 
 MyTable |> adorn_totals("row") # add a row for totals
 
@@ -220,9 +224,9 @@ MyTable |> adorn_percentages("all")|>  adorn_ns() # report percentage of total a
 ```
 
 
-#The Statistical Test:
+## The Statistical Test: 
 
-```{r}
+```{r, eval = FALSE}
 #Chi-Square test:
 chisq.test(MyTable)
 
@@ -233,20 +237,32 @@ Note that when the counts within a table category are small, generally <5, the r
 
 
 
-# Going furhter: Improving the lexicon by considering negation
+## Going further: Improving the lexicon by considering negation
 
 Using a lexicon, consider the phrase: 
 - "This workshop is not too bad."  
 A lexicon based approach would see the word _bad_ and consider the sentence to be negative, whereas _not bad_ is actually pretty good all things considered.
 
 
-Library *qdap* searches for the positive or negative *word* and then builds a window around it *[word-4,word+2]*.  Within that window it removes neutral words and the polarized word, then extracts amplifier and negation words. The polarity score is tallied within the window and divided by the square root of the total words in teh sentence to come up with a polarity score for the sentence.
+Library *qdap* searches for the positive or negative *word* and then builds a window around it *[word-4,word+2]*.  Within that window it removes neutral words and the polarized word, then extracts amplifier and negation words. The polarity score is tallied within the window and divided by the square root of the total words in the sentence to come up with a polarity score for the sentence.
 
 
-```{r}
+The polarized (positive / negative) words are found.  For each polarized word a context cluster is extracted, by default the context window is from 4 words before to 2 words after.  The words in this context cluster are $x_i^T, i=-4,...,2$.  These words are relabelled as neutral words, $x_i^0$, negators, $x_i^N$, amplifiers $x_i^a$, or de-amplifiers $x_i^d$, denoted by superscripts. The different types of words are indicators taking values of 1.
+
+Amplifiers / De-amplifiers
 
 
-#### use library(qdap) instead
+
+
+A given polarized word has a score of $X_i=\pm 1$ (depending on positive or negative), but this is altered based a window of nearby words which defaults to starting $4$ words before until 2 words after the polarized word, for a total window size of $N_{words}=7$.  The window is truncated by the end of the sentence, whose length is $N_{WordsInSentence}$. The amplifier / deamplifier weight is by default $.8$, which acts as a modifier of the polarized word score.  The number of negator words, $N_{egator}$, are used to flip the sign of the score.  There are several places where weights could be included if domain knowledge suffices.  The polarity score for a word in the positive / negative list depends on the nearby words:
+\[P_{olarity}=\frac{(-1)^{N_{Negator}}(X_i + .8 * (A_{mplifiers} - D_{eamplifiers})) }{\sqrt{N_{WordsInSentence}}}\]
+Where, by default we count amplifier words, but they could be weighted:
+\[A_{mplifiers}  = mod_2[N_{Negators}]N_{Amplifiers}(1-I\!\!I(N_{deamplifiers}=0))\]      
+The number of neutral words, $N_{Negators}$, can tone down amplification when considering deamplification:
+\[D_{eamplifiers} = max(-1,(-mod_2[N_{Negators}]N_{Amplifiers} +N_{Deamplifiers}))\]     
+
+```{r, eval = FALSE}
+
 # also, for fun use a binary lexicon such as LMlex or bing
 
 # Start by defining the basic polarity lexicon:
@@ -254,37 +270,72 @@ Library *qdap* searches for the positive or negative *word* and then builds a wi
 positives = LMlex  |> filter(polarity =="positive") |> pull(term)
 negatives = LMlex  |> filter(polarity =="negative") |> pull(term)
 # this is a great place to add in more terms...
-# negatives = c(negatives, "unemployment","inflation")
-# positives = c(positives, "employment")
+negatives = c(negatives, "invasion", "war", "uncertainty", "upheaval","anxious", "risk", "tensions","tension")
+positives = c(positives, "solid", "reassuring")
 
 # put them into the sentiment lookup hash table
 # note that we could set the positive and negative weights:
 polarity_frame = sentiment_frame(positives, negatives)
 
 # try a few sentences and extract the polarity:
-polarity("This workshop is bad."       , polarity.frame = polarity_frame)$all$polarity
-polarity("This workshop is not great." , polarity.frame = polarity_frame)$all$polarity
-polarity("This workshop is not too bad", polarity.frame = polarity_frame)$all$polarity
-polarity("This workshop is not bad."   , polarity.frame = polarity_frame)$all$polarity
-polarity("This workshop is ok"         , polarity.frame = polarity_frame)$all$polarity
-polarity("This workshop is good enough", polarity.frame = polarity_frame)$all$polarity
-polarity("This workshop is great"      , polarity.frame = polarity_frame)$all$polarity
-polarity("This workshop is really good", polarity.frame = polarity_frame)$all$polarity
+polarity("This workshop is bad."                 , polarity.frame = polarity_frame)$all
+polarity("This workshop is not great."           , polarity.frame = polarity_frame)$all  #negator 'seldom'
+polarity("This workshop is seldom bad"           , polarity.frame = polarity_frame)$all  #deamplifier 'seldom'
+polarity("This workshop is not bad."             , polarity.frame = polarity_frame)$all  #negator 'seldom'
+polarity("This workshop is ok"                   , polarity.frame = polarity_frame)$all  # neutral
+polarity("This workshop is hardly very good"     , polarity.frame = polarity_frame)$all  #deamplifier 'hardly', amplifier 'very';(1+.8*(1-1+1))/sqrt(6)
+polarity("This workshop is very seldom very good", polarity.frame = polarity_frame)$all; #deamplifier 'seldom', amplifier 'very'x2;(1+.8*(0-(-2+1)))/sqrt(7)
+polarity("This workshop is great"                , polarity.frame = polarity_frame)$all
+polarity("This workshop is really good"          , polarity.frame = polarity_frame)$all #amplifier "really";(1+.8*(1))/sqrt(5)
+polarity("This workshop is the absolute best"    , polarity.frame = polarity_frame)$all #amplifier absolute?
 
 
 ```
 
 
-# More About Cleaning Text
+It's worthwhile to check out the word lists and make sure that they are suitable.  Pre-processing choices impact analysis.
 
-A general purpose lexicon will never be as good as a curated list for the domain.  The text also needs a lot of cleaning.  Here are some steps towards cleaning and then splitting into sentences.
+```{r, eval = FALSE, message = FALSE }
+qdapDictionaries::amplification.words
+qdapDictionaries::deamplification.words
+qdapDictionaries::negation.words
+
+```
 
 
-```{r, message = FALSE, warning = FALSE}
+
+## Great!  Will this work on real world economic data?
+
+<!-- ```{r, eval = FALSE} -->
+<!-- polarity("Inflation is rising faster than expected" , polarity.frame = polarity_frame)$all$polarity -->
+<!-- polarity("unemployment is at historic lows"         , polarity.frame = polarity_frame)$all$polarity -->
+
+<!-- ``` -->
+<!-- Let's pretend the answer is yes. -->
+
+
+
+### Looking at sentiment relative to certain topics
+
+
+- split the speeches into sentences
+- subset into sentences mentioning certain keywords here consider **inflation**
+- obtain polarity scores around each topic area.
+- t-test for differences between average polarity scores
+
+
+First let's do some cleaning.
+
+
+```{r, eval = FALSE, message = FALSE, warning = FALSE}
 
 #The data:
-speeches_modified = rbind(new_speech,old_speech) |>
-         mutate(date = year(date) ) # simplify date to just the year
+speeches_modified = rbind(new_speeches,old_speeches) |>
+         mutate(date = year(date) )|> # simplify date to just the year
+         group_by(date)|> # do these actions within the unique date values
+            unnest_tokens(output = paragraph, input = speech_text, token = "regex", pattern = "\n") |># split into paragraphs
+            mutate(paragraph_count = row_number() )|> # add a paragraph number
+         ungroup() 
 
 # We can run an automatic check for strange things,
 # This gives suggestions about potential problems
@@ -298,78 +349,131 @@ speeches_modified = rbind(new_speech,old_speech) |>
 
 # some basic cleaning steps as suggested from check_text.
 speeches_modified = speeches_modified |>
-         mutate(speech_text = replace_number(speech_text))|> # replace numbers by spelling them out as words.
-         mutate(speech_text = str_replace_all(speech_text, pattern = "(\t)|(\n)|(\r)", replacement = ""))|> # poor encoding for spaces, line breaks, paragraphs
-         mutate(speech_text = str_replace_all(speech_text, pattern = "\\%", replacement = " percent"))|> # symbols
-         mutate(speech_text = str_replace_all(speech_text, pattern = "½", replacement = " a half")) |>
-         mutate(speech_text = str_replace_all(speech_text, pattern = "¼", replacement = " a quarter"))|> 
-         mutate(speech_text = add_incomplete(speech_text)) |># handing potentially incomplete sentences
+         mutate(paragraph = replace_number(paragraph))|> # replace numbers by spelling them out as words.
+         mutate(paragraph = str_replace_all(paragraph, pattern = "(\t)|(\n)|(\r)", replacement = ""))|> # poor encoding for spaces, line breaks, paragraphs
+         mutate(paragraph = str_replace_all(paragraph, pattern = "\\%", replacement = " percent"))|> # symbols
+         mutate(paragraph = str_replace_all(paragraph, pattern = "½", replacement = " a half")) |>
+         mutate(paragraph = str_replace_all(paragraph, pattern = "¼", replacement = " a quarter"))|> 
+         mutate(paragraph = add_incomplete(paragraph)) # handing potentially incomplete sentences
          
 
 # check_text(speeches_modified[,"speech_text"])
 
 
-# now split into sentences.
-
-split_speech = sentSplit(speeches_modified,"speech_text")
-
-
-(out = with(split_speech, polarity(speech_text, grouping.var = "date", polarity.frame = polarity_frame)))
-
 ```
 
 
+# Sentiment around topics of interest.
+
+Consider the paragraphs mentioning inflation.  What is the sentiment of those paragraphs?  Is there a difference between 2018 and 2022 in sentiment when discussing inflation?
 
 
+```{r, eval = FALSE}
+
+# Seek out paragraphs mentioning certain key words, here just inflation
+speeches_economy = speeches_paragraphs |>
+   filter(str_detect(paragraph, "inflation")) 
+
+# then split the paragraphs into sentences for calculating polarity scores
+speeches_economy_sentence = speeches_economy |>
+   # sentSplit("paragraph")
+   # unnest_tokens(input = paragraph, output = sentences, token = "sentences")# usually works, but interferes with the previous tokenization into paragraphs               
+     unnest_tokens(input = paragraph, output = sentences, token = stringr::str_split, pattern = "\\.|\\?|\\!") |> # split apart paragraphs at sentence ending punctuation.
+   filter(sentences != "") # remove empty sentences
+                 
+
+# recycle the positive/negative sentiment frame from above
+# polarity_frame = sentiment_frame(positives, negatives)
+
+speeches_economy_sentence = speeches_economy_sentence |>
+   mutate(polarity =  polarity(sentences, polarity.frame = polarity_frame)$all$polarity)
+
+ speeches_economy_sentence |>
+   filter(polarity!=0)|> # remove the neutral filler stuff
+   ggplot(aes(x = polarity, colour = as.factor(date)))+
+   geom_density()+
+   ggtitle(tools::toTitleCase("Polarity of non-neutral sentences \n in paragraphs mentioning inflation"))
+
+   
+```
 
 
+## T-test
 
+We could perform a statistical test for differences in the average polarity of polarized sentences in paragraphs relating to inflation.  The hypotheses are:
 
+\[H_o:\mu_{2018}\leq\mu_{2022}\]
 
+\[H_a:\mu_{2018}>\mu_{2022}\]
 
-# split into bigrams, but keep the original text to make every step clear
-Biebgrams 
+We should consider whether or not to include the neutral sentences.  It's best to look at some of  the neutral sentences.
 
+```{r, eval = FALSE}
 
-Bieber = rbind(Lyrics1,Lyrics2) |>
-       mutate(originalline = lyric) 
-
-# glue NA to the beginning of each string.  The result is that now all of teh original words will be used in the sentiment lexicon replacement.
-Bieber$lyric = stringr::str_replace_all(Bieber$lyric, pattern="^", replacement = "NA ")
-       
-
-# Split into bigrams, separate apart the bigram into "PreWord" and "word" and perform lexicon sentiment replacement on the second term ("word") while keeping way too many interim steps for illustration:
-
-Bieber   =  Bieber |>
-            unnest_tokens(output = bigram,input = lyric, token = "ngrams", n=2) |>
-            mutate(originalbigram = bigram) |>
-            separate(bigram, c("PreWord", "word"), sep = " ") |>
-            inner_join(get_sentiments("bing") ) 
-
-
-
-# find bigrams where the first word might negate the second.
-Bieber |> filter(PreWord %in% c("not","isn't","no"))
-# now consider which should be changed.
-
-
-Bieber[which(Bieber$originalbigram=="no patience"),"sentiment"] = "negative"    
-Bieber[which(Bieber$originalbigram=="no approval"),"sentiment"] = "negative"
-Bieber[which(Bieber$originalbigram=="not right") ,"sentiment"] = "negative"
-
-Bieber[which(Bieber$originalbigram=="no wrong"),"sentiment"] = "positive"
-Bieber[which(Bieber$originalbigram=="not trouble"),"sentiment"] = "positive"
-
-Bieber |> filter(PreWord %in% c("not","isn't","no"))
+speeches_economy_sentence |>
+   filter(polarity==0) |>
+   select(sentences) |>
+   sample_n(10)# sample 10 random lines...
 
 ```
 
-If the text is expected to have a small number of typos of typos the _amatch_ function from _library(stringdist)_ will look for an approximate match rather than an exact match for strings.
+Given whatever we decide, we can run the t-test to check if the mean polarity in sentences from paragraphs discussing inflation in 2018 is greater than it is now in 2022.  
+
+```{r, eval = FALSE}
+
+
+t.test(polarity ~ date, 
+       alternative = "greater", 
+       var.equal = FALSE,
+       data = speeches_economy_sentence |>
+            mutate(date = as.factor(date))|>
+            filter(polarity!=0)#<-- consider this line carefully
+      )
+
+```
+# With More Effort We Can Do Even Better, But...
+
+we need more data.
+
+There are much better / more accurate tools for sentiment analysis.  But language has a lot of specific nuances that require domain specific input.  
+
+The meaning and sentiment behind words varies with context.  Python might literally kill you because its a large hungry snake or it might figuratively kill you because you forget to start with index 0.  Apples might be cheap or expensive depending on whether you buy one at a produce store or computer store.  
+
+
+# Danger Zone
+
+## You only have what you get, and you might not like it
+
+With text it is often easy to get a whole lot of data.  Statisticians need no convincing that **good data >> big data**.  With text data it's hard to know what you have, but its definitely noisy, and has a lot of caveats.
+
+
+
+## Word embeddings
+
+In text analysis we are working to convert words into numbers, then we use standard tools.  We could then get annotators to craft sentiment scores, then build a matrix, $\mathbf{X}$ with one row per sentence, and columns as presence / absence of individual words.  
+
+This implies a __very very__ wide $\mathbf{X}$ matrix for fitting our sentiment scalar $\hat{\mathbf{Y}} = f(\mathbf{X}\beta)$, so we need a lot of data.
+
+In many cases we need to reduce the dimension of $\mathbf{X}$ to somehow handle equivalent words.
+
+
+Models like **Word2Vec, GloVE, and BERT** are too complex to discuss today, but these use models to reduce the dimension of $\mathbf{X}$ from 300,000 ish unique words, to 300ish numeric dimensions.  Often we use a pre-trained word embedding model made for another purpose and hope it's good enough for us.  Then we run our raw text through the word embedding as a dimension reduction tool and plug it into regression.
+
+As statisticians know, it is usually best to reduce the dimension of $\mathbf{X}$ while modelling $\mathbf{Y}$ so that we end up with something optimal, but for computational reasons this is rarely done.
+
+Reduced dimension models like BERT, GloVE, and Word2Vec are often called **word embeddings**.  There is well known danger in blindly using them that has led to amplification of discrimination and human bias. 
+
+
+
+
 
 ## Great references
 
-- Kwartler, T (2017) "Text Mining in Practice with R", Wiley 
-See especially Chapter 4 on sentiment scoring and chapter 8 on OpenNLP for parts of speech tagging.  
-
+- **Kwartler, T (2017) "Text Mining in Practice with R", Wiley** 
+See especially Chapter 4 on sentiment scoring and including emojis.  Also Chapter 8 on OpenNLP for parts of speech tagging to find names, nouns, verbs,...  
+- **Hvitfeldt, E. and Silge, J. (2022) "Supervised Machine LEarning For Text Analysis in R", CRC press.**
+This book comes at text analysis is written from the perspective of a software developper.  It's probably better for statisticians to read this type of text, but you might want more statistics.
+- **Silge, J. and Robinson, D. (2017) "Text Mining with R", O'Reilly**
+Again, a software developper take on handling data.  Light in statistics but heavy in 'doing things'.  The field has moved on quite a bit from then and there are now more tools, so it feels little dated, but it is very strong in tidyverse, data acquisition, ggplot,...
 
  
