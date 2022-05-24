@@ -1,5 +1,5 @@
 ---
-title: "Text Analysis"
+title: "Statistical Language Modelling with R"
 author: 
   name: "Dave Campbell,   <br> Bank of Canada and Carleton University,     <br>   [linkedin.com/in/drdavecampbell/](https://www.linkedin.com/in/drdavecampbell/)  <br> Twitter: @iamdavecampbell <br> GitHub: @iamdavecampbell"
 date: "23/05/2022"
