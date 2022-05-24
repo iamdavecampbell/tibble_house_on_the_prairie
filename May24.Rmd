@@ -1,6 +1,7 @@
 ---
 title: "Text Analysis"
-author: "Dave Campbell"
+author: 
+  name: "Dave Campbell,   <br> Bank of Canada and Carleton University,     <br>   [linkedin.com/in/drdavecampbell/](https://www.linkedin.com/in/drdavecampbell/)  <br> Twitter: @iamdavecampbell <br> GitHub: @iamdavecampbell"
 date: "23/05/2022"
 output:  
    ioslides_presentation:
@@ -19,12 +20,15 @@ Dave Campbell
 
 Feel free to fork, star, download, correct typos,...
 
-### All the libraries used in this presentation.
+**We will run code live**
+
+### Libraries:
 
 ```{r, eval = FALSE, message = FALSE}
 # packages used 
-install.packages(c("tidyverse","tidytext","dplyr",
-                    "stringr","janitor","lubridate",
+install.packages(c("tidyverse","tidytext",
+                   "dplyr", "stringr",
+                   "janitor","lubridate",
                     "qdap","tools"))
 # packages mentioned:
 install.packages(c("text2vec","textdata", "word2vec"))
