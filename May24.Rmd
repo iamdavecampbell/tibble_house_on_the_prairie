@@ -1,5 +1,5 @@
 ---
-title: "Sentiment Analysis"
+title: "Text Analysis"
 author: "Dave Campbell"
 date: "23/05/2022"
 output:  
@@ -8,7 +8,7 @@ output:
 ---
 
 
-## Sentiment-Analysis
+## Statistical Language Processing
 
 Dave Campbell
 
@@ -921,10 +921,13 @@ Again, a software developper take on handling data.  Light in statistics but hea
 #### Original Word2Vec papers
 - **Mikolov, T., Chen, K., Corrado, G., & Dean, J. (2013). Efficient estimation of word representations in vector space. 1st International Conference on Learning Representations, ICLR 2013 - Workshop Track Proceedings, 1–12.** 
 
-- **Mikolov, T., Sutskever, I., Chen, K., Corrado, G. S., & Dean, J. (2013). Distributed Representations of Words and Phrases and their Compositionality. Advances in Neural Information Processing Systems, 26. https://doi.org/10.18653/v1/d16-1146** 
+- **Mikolov, T., Sutskever, I., Chen, K., Corrado, G. S., & Dean, J. (2013). Distributed Representations of Words and Phrases and their Compositionality. Advances in Neural Information Processing Systems, 26** 
 
-#### BERT papers
-- **Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of deep bidirectional transformers for language understanding. NAACL HLT 2019 - 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies - Proceedings of the Conference, 1, 4171–4186.**
+### GloVe
+**Pennington, J., Socher, R., & Manning, C. D. (2014). GloVe: Global Vectors for Word Representation. In Empirical Methods in Natural Language Processing (EMNLP) (pp. 1532--1543). https://doi.org/10.1080/02688697.2017.1354122**
+
+#### BERT paper
+- **Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of deep bidirectional transformers for language understanding. NAACL HLT 2019, 4171–4186.**
 
 ## Fun reads:
 - **Lapointe, F.-J., & Legendre, P. (1994). A Classification of Pure Malt Scotch Whiskies. Journal of the Royal Statistical Society . Series C ( Applied Statistics ), 43(1), 237–257.** Fun paper about classifying whiskies based on presence / absence of flavour words
