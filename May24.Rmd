@@ -2,7 +2,9 @@
 title: "Sentiment Analysis"
 author: "Dave Campbell"
 date: "23/05/2022"
-output:  ioslides_presentation
+output:  
+   ioslides_presentation:
+      widescreen: true
 ---
 
 
@@ -20,10 +22,12 @@ Feel free to fork, star, download, correct typos,...
 ### All the libraries used in this presentation.
 
 ```{r, eval = FALSE, message = FALSE}
- install.packages(c("tidyverse","tidytext","dplyr",
+# packages used 
+install.packages(c("tidyverse","tidytext","dplyr",
                     "stringr","janitor","lubridate",
-                    "qdap","tools","text2vec",
-                    "textdata"))
+                    "qdap","tools"))
+# packages mentioned:
+install.packages(c("text2vec","textdata", "word2vec"))
 ```
 
 
@@ -56,7 +60,7 @@ library(qdap) ## handle polarization for sentiment analysis
 library(tools) ## to make one plot title look nice
 library(text2vec)## will use if we get to word embeddings
 library(textdata)## will use if we get to word embeddings
-
+library(word2vec)## will use if we get to word embeddings
 ```
 
 
@@ -381,10 +385,13 @@ Consider the Null Hypothesis that economic speeches have same sentiment distribu
 
 ## In R:
 
+Cross-tab table
+
+T his counts the occurences, so we don't use the 'summed' table but instead use the tibble that we joined on the sentiments.
+
+
 ```{r, eval = FALSE}
 
-#Cross-tab table
-## this counts the occurences, so we don't use the 'summed' table above, but instead use the tibble that we joined on the sentiments:
 
 MyTable = janitor::tabyl(
    Speeches|> 
@@ -452,7 +459,9 @@ when the counts within a table category are small, generally <5, the results may
 Improving the lexicon by considering negation
 
 Using a lexicon, consider the phrase: 
+
 - "This workshop is not too bad."  
+
 A lexicon based approach would see the word **bad** and consider the sentence to be negative, whereas **not bad** is actually pretty good all things considered.
 
 
@@ -477,23 +486,8 @@ qdapDictionaries::negation.words
 
 ```
 
-## qdap
-- A polarized word starts with a score of $X_i=\pm 1$.
-
-- The amplifier / deamplifier weight is by default $.8$.
-
-- The number of negator words, $N_{Negator}$ flip the sign.  
-
--  The polarity score for a word in the positive / negative list depends on the nearby words:
-\[P_{olarity}=\frac{(-1)^{N_{Negator}}(X_i + .8 * (A_{mplifiers} - D_{eamplifiers})) }{\sqrt{N_{WordsInSentence}}}\]
-- Amplifier words are counted but could be weighted:
-
-\[A_{mplifiers}  = N_{Amplifiers}I\!\!I(N_{deamplifiers}=0)\]   
-
-\[D_{eamplifiers} = max(-1,(-1^{N_{Negators}}N_{Amplifiers} +N_{Deamplifiers}))\]     
 
 
- 
 
 ## Let's try it out
  
@@ -517,6 +511,25 @@ polarity_frame = sentiment_frame(positives, negatives)
 
 
 
+## qdap
+- A polarized word starts with a score of $X_i=\pm 1$.
+
+- The amplifier / deamplifier weight is by default $.8$.
+
+- The number of negator words, $N_{Negator}$ flip the sign.  
+
+-  The polarity score for a word in the positive / negative list depends on the nearby words:
+\[P_{olarity}=\frac{(-1)^{N_{Negator}}(X_i + .8 * (A_{mplifiers} - D_{eamplifiers})) }{\sqrt{N_{WordsInSentence}}}\]
+- Amplifier words are counted but could be weighted:
+
+\[A_{mplifiers}  = N_{Amplifiers}I\!\!I(N_{deamplifiers}=0)\]   
+
+\[D_{eamplifiers} = max(-1,(-1^{N_{Negators}}N_{Amplifiers} +N_{Deamplifiers}))\]     
+
+
+ 
+
+
 
  
 
@@ -528,22 +541,21 @@ polarity_frame = sentiment_frame(positives, negatives)
 polarity("This workshop is bad."                 , 
          polarity.frame = polarity_frame)$all
 polarity("This workshop is not great."           , 
-         polarity.frame = polarity_frame)$all  #negator 'seldom'
-polarity("This workshop is not bad."             , 
-         polarity.frame = polarity_frame)$all  #negator 'seldom'
+         polarity.frame = polarity_frame)$all  #negator 
+polarity("This workshop is seldom bad."             , 
+         polarity.frame = polarity_frame)$all  #seldom
 polarity("This workshop is ok"                   , 
          polarity.frame = polarity_frame)$all  ## neutral
 polarity("This workshop is hardly very good"     , 
-         polarity.frame = polarity_frame)$all  #deamplifier 'hardly', amplifier 'very';(1+.8*(-(-1+1)))/sqrt(6)
+         polarity.frame = polarity_frame)$all  #deamplifier 'hardly', amplifier 'very';         (1+.8*(-(-1+1)))/sqrt(6)
 polarity("This workshop is very seldom very good", 
-         polarity.frame = polarity_frame)$all; #deamplifier 'seldom', amplifier 'very'x2;(1+.8*(0-(-2+1)))/sqrt(7)
-
+         polarity.frame = polarity_frame)$all; #deamplifier 'seldom', amplifier 'very'x2;    (1+.8*(0-(-2+1)))/sqrt(7)
 polarity("This workshop is great"                , 
          polarity.frame = polarity_frame)$all
 polarity("This workshop is really good"          , 
-         polarity.frame = polarity_frame)$all #amplifier "really";(1+.8*(1))/sqrt(5)
+         polarity.frame = polarity_frame)$all # amplifier
 polarity("This workshop is the absolute best"    , 
-         polarity.frame = polarity_frame)$all #amplifier absolute?
+         polarity.frame = polarity_frame)$all 
 
 
 ```
@@ -735,16 +747,20 @@ With text it is often easy to get a whole lot of data.
 
 ## Going Further
 
-In text analysis we are working to convert words into numbers, then we use standard tools.  We could then get annotators to craft sentiment scores, then build a matrix, $\mathbf{X}$ with one row per sentence, and columns as presence / absence of individual words.  
+In text analysis = convert words into numbers, then we use standard tools.  
 
-This implies a __very very__ wide $\mathbf{X}$ matrix for fitting our sentiment scalar $\hat{\mathbf{Y}} = f(\mathbf{X}\beta)$, so we need a lot of data.
+- We could then get annotators to craft sentiment scores, then build a matrix, $\mathbf{X}$ with one row per sentence, and columns as presence / absence of individual words.  
 
-In many cases we need to reduce the dimension of $\mathbf{X}$ to somehow handle equivalent words.
+- This implies a __very very__ wide $\mathbf{X}$ matrix for fitting our sentiment scalar $\hat{\mathbf{Y}} = f(\mathbf{X}\beta)$, so we need a lot of data.
+
+- In many cases we need to reduce the dimension of $\mathbf{X}$ to somehow handle equivalent words.
 
 
 ## Danger Zone: Word embeddings
 
-Models like **Word2Vec, GloVE, and BERT** reduce the dimension of $\mathbf{X}$ from 300,000 ish unique English words, to 300ish numeric dimensions.  Often we use a pre-trained word embedding model made for another purpose and hope it's good enough for us.  Then we run our raw text through the word embedding as a dimension reduction tool and plug it into regression.
+### Fantastic Results, extreme potential for harm
+
+Models like **Word2Vec, GloVE**, and **BERT** reduce the dimension of $\mathbf{X}$ from 300,000 ish unique English words, to 300ish numeric dimensions.  Often we use a pre-trained word embedding model made for another purpose and hope it's good enough for us.  Then we run our raw text through the word embedding as a dimension reduction tool and plug it into regression.
 
 As statisticians know, it is usually best to reduce the dimension of $\mathbf{X}$ while modelling $\mathbf{Y}$ so that we end up with something optimal, but for computational reasons this is rarely done.
 
@@ -756,22 +772,37 @@ Reduced dimension models like BERT, GloVE, and Word2Vec are often called **word 
 
 ### Word2Vec
 
-**Continuous Bag of Words**
-Fit a Neural Net with one hidden layer to predict a missing middle word from the context words.  
+**Continuous Bag of Words**: Neural Net with one hidden layer predict a missing middle word from the context words.  
+
 - Input: 2xWindow size X 300,000 ish words  
 
 - Hidden (embedding) dimension: 300ish
 
 - Output: 1 word from 300,000 words.
 
-**Skip-Gram**
-Fit a Neural Net with one hidden layer to predict the context window words from the  middle word  
+**Skip-Gram**: Neural Net with one hidden layer predicts the context words from the  middle word.  
 
 - Input: 1 word from 300,000 ish words  
 
 - Hidden (embedding) dimension: 300ish, 
 
 - Output: 2xWindow size X 300,000ish words.
+
+
+
+## Word2Vec
+
+```{r, eval = FALSE}
+library(word2vec)
+model <- word2vec(x = Text_Goes_Here, type = "cbow", dim = 300, iter = 20)
+# iter = passes through full corpus
+```
+
+### Or download a pre-trained model from [https://code.google.com/archive/p/word2vec/](https://code.google.com/archive/p/word2vec/)
+
+Download (1.5GB) pre-trained vectors trained on part of Google News dataset (about 100 billion words) from the original paper: [GoogleNews-vectors-negative300.bin.gz](https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit?usp=sharing)"
+
+
 
 
 ## GloVe
@@ -785,7 +816,7 @@ Fit a Neural Net with one hidden layer to predict the context window words from 
 ```{r, eval = FALSE}
  
 library(textdata)
-# 822.2 MB download
+# 822.2 MB download: 2010 Wikipedia dump with 1 billion tokens
 glove6b = embedding_glove6b(dimensions = 300,
          manual_download=TRUE, return_path=TRUE)
  
@@ -799,42 +830,39 @@ Word_of_interest = glove6b["payment", , drop = FALSE]
 
 ## Embeddings
 
-<img src="images.001.jpeg"  style="height: 400px"/>
+<img src="images.001.jpeg"  style="height: 500px"/>
 
 
 ## Embeddings
 
-<img src="images.002.jpeg"  style="height: 400px"/>
+<img src="images.002.jpeg"  style="height: 500px"/>
 
 ## Embeddings
 
-<img src="images.003.jpeg"  style="height: 400px"/>
+<img src="images.003.jpeg"  style="height: 500px"/>
 
-
-## Embeddings
-
-<img src="images.004.jpeg"  style="height: 400px"/>
-
-## Embeddings
-
-<img src="images.005.jpeg"  style="height: 400px"/>
-
-## Embeddings
-
-<img src="images.006.jpeg"  style="height: 400px"/>
-
-## Embeddings
-
-<img src="images.007.jpeg"  style="height: 400px"/>
-
-## Embeddings
-
-<img src="images.008.jpeg"  style="height: 400px"/>
 
 
 ## Embeddings
 
-<img src="images.009.jpeg"  style="height: 400px"/>
+<img src="images.005.jpeg"  style="height: 500px"/>
+
+## Embeddings
+
+<img src="images.006.jpeg"  style="height: 500px"/>
+
+## Embeddings
+
+<img src="images.007.jpeg"  style="height: 500px"/>
+
+## Embeddings
+
+<img src="images.008.jpeg"  style="height: 500px"/>
+
+
+## Embeddings
+
+<img src="images.009.jpeg"  style="height: 500px"/>
 
 
 
@@ -852,7 +880,7 @@ Biases we see in text are amplified in the embedding dimensions
 ### Prime Minister of Canada
 - Kim Campbell was Prime Minister for 132 days in 1993, as a result "Prime Minister of Canada" is much closer to male pronouns than female ones.
 
-### Racial and gender bias examples in general text are a lot worse.
+### Racial and gender bias examples from general text are a lot worse.
 
  
 
@@ -880,7 +908,7 @@ Given an imprecise Bank speech quote, which year is it from?
 
 - **Kwartler, T (2017) "Text Mining in Practice with R", Wiley** 
 See especially Chapter 4 on sentiment scoring and including emojis.  Also Chapter 8 on OpenNLP for parts of speech tagging to find names, nouns, verbs,...  
-- **Hvitfeldt, E. and Silge, J. (2022) "Supervised Machine LEarning For Text Analysis in R", CRC press.**
+- **Hvitfeldt, E. and Silge, J. (2022) "Supervised Machine Learning For Text Analysis in R", CRC press.**
 This book comes at text analysis is written from the perspective of a software developper.  It's probably better for statisticians to read this type of text, but you might want more statistics.
 - **Silge, J. and Robinson, D. (2017) "Text Mining with R", O'Reilly**
 Again, a software developper take on handling data.  Light in statistics but heavy in 'doing things'.  The field has moved on quite a bit from then and there are now more tools, so it feels little dated, but it is very strong in tidyverse, data acquisition, ggplot,...
@@ -894,6 +922,9 @@ Again, a software developper take on handling data.  Light in statistics but hea
 - **Mikolov, T., Chen, K., Corrado, G., & Dean, J. (2013). Efficient estimation of word representations in vector space. 1st International Conference on Learning Representations, ICLR 2013 - Workshop Track Proceedings, 1–12.** 
 
 - **Mikolov, T., Sutskever, I., Chen, K., Corrado, G. S., & Dean, J. (2013). Distributed Representations of Words and Phrases and their Compositionality. Advances in Neural Information Processing Systems, 26. https://doi.org/10.18653/v1/d16-1146** 
+
+#### BERT papers
+- **Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of deep bidirectional transformers for language understanding. NAACL HLT 2019 - 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies - Proceedings of the Conference, 1, 4171–4186.**
 
 ## Fun reads:
 - **Lapointe, F.-J., & Legendre, P. (1994). A Classification of Pure Malt Scotch Whiskies. Journal of the Royal Statistical Society . Series C ( Applied Statistics ), 43(1), 237–257.** Fun paper about classifying whiskies based on presence / absence of flavour words
