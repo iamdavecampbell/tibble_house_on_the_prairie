@@ -2,7 +2,7 @@
 title: "Sentiment Analysis"
 author: "Dave Campbell"
 date: "23/05/2022"
-output: ioslides_presentation
+output:  ioslides_presentation
 ---
 
 
@@ -176,6 +176,7 @@ We can use Bank of Canada speeches as long as we provide them free of charge (or
 ### New Speeches
 - \small [https://www.bankofcanada.ca/2022/04/opening-statement-250422/](https://www.bankofcanada.ca/2022/04/opening-statement-250422/)
 - \small [https://www.bankofcanada.ca/2022/03/opening-statement-030322/](https://www.bankofcanada.ca/2022/03/opening-statement-030322/)
+
 ### Old Speeches   
 - \small [https://www.bankofcanada.ca/2018/10/opening-statement-october-30-2018/](https://www.bankofcanada.ca/2018/10/opening-statement-october-30-2018/)
 - \small [https://www.bankofcanada.ca/2018/04/opening-statement-april-23-2018/](https://www.bankofcanada.ca/2018/04/opening-statement-april-23-2018/)
@@ -726,7 +727,7 @@ t.test(polarity ~ date,
 ### You only have what you get, and you might not like it
 
 With text it is often easy to get a whole lot of data.  
-- Statisticians need no convincing that **good data >> big data**.  
+-  **good data >> big data**.  
 - With text data it's hard to know what you have, but its definitely noisy, and has a lot of caveats.
 
 
@@ -796,6 +797,49 @@ Word_of_interest = glove6b["payment", , drop = FALSE]
  
 ```
 
+## Embeddings
+
+<img src="images.001.jpeg"  style="height: 400px"/>
+
+
+## Embeddings
+
+<img src="images.002.jpeg"  style="height: 400px"/>
+
+## Embeddings
+
+<img src="images.003.jpeg"  style="height: 400px"/>
+
+
+## Embeddings
+
+<img src="images.004.jpeg"  style="height: 400px"/>
+
+## Embeddings
+
+<img src="images.005.jpeg"  style="height: 400px"/>
+
+## Embeddings
+
+<img src="images.006.jpeg"  style="height: 400px"/>
+
+## Embeddings
+
+<img src="images.007.jpeg"  style="height: 400px"/>
+
+## Embeddings
+
+<img src="images.008.jpeg"  style="height: 400px"/>
+
+
+## Embeddings
+
+<img src="images.009.jpeg"  style="height: 400px"/>
+
+
+
+
+
 ## Dangers
 
 Biases we see in text are amplified in the embedding dimensions
@@ -817,13 +861,14 @@ Biases we see in text are amplified in the embedding dimensions
 Sentiments
 
 - Label the sentiment in a set of sentences.
-- Fit a regression model to predict sentiment based on word embedding encodings of text.
+- Fit a model to predict sentiment based on word embeddings.
 
-Given an imprecise Bank speech quote, we want to know which year it is from.
+
+Given an imprecise Bank speech quote, which year is it from?
 
 - Split the speech sentences into test-train, use Year as $\mathbf{Y}$.
 - Push sentences through embedding model and average over sentences, these become $\mathbf{X}$.
-- Fit a (linear, forest, neural net) regression model predicting  $\mathbf{Y}$ from  $\mathbf{X}$.
+- Fit a (fancy?) regression model predicting  $\hat{\mathbf{Y}}$ from $\mathbf{X}$.
 
 - Run the imprecise quote through the model to estimate the year it was spoken.
 
@@ -831,7 +876,7 @@ Given an imprecise Bank speech quote, we want to know which year it is from.
 
  
 
-## Great references
+## Great Books
 
 - **Kwartler, T (2017) "Text Mining in Practice with R", Wiley** 
 See especially Chapter 4 on sentiment scoring and including emojis.  Also Chapter 8 on OpenNLP for parts of speech tagging to find names, nouns, verbs,...  
