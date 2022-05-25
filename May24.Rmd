@@ -100,7 +100,7 @@ Is there a difference in the sentiment in Bank of Canada speeches given to the H
 ##  Sentiment Analysis
 
 ### The goal is to infer the emotional meaning behind the authors words.  
-- In the 1980s Robert Plutchik created a classification framework for emotions based on 2 evolutionarily created emotions **{anger, disgust, sadness, surprise, fear, trust, joy, anticipation}**.  
+- In the 1980s Robert Plutchik created a classification framework for emotions based on 8 evolutionarily created emotions **{anger, disgust, sadness, surprise, fear, trust, joy, anticipation}**.  
 - Other emotions are combinations of these.  
 - Classifying text according to these emotions is challenging and often subjective.  
 - Instead people often use polarity **(positive, neutral, negative)**.  
@@ -241,7 +241,10 @@ old_speeches = read_csv(file = "old_speeches.csv")
 
 ## AFINN
 
+
 ### Gives words a score between -5 and +5 rating its severity of positive or negative sentiment.
+
+- Constructed by hand for 'microposts' and 'microblogs' such as Twitter.
 
 ```{r, eval = FALSE}
 tidytext::get_sentiments("afinn")
@@ -255,6 +258,10 @@ get_sentiments("afinn") |>
 ## Bing
 
 ### Gives a binary value of positive or negative. Neutral words are not in the list.
+
+- Constructed for feature based opinion mining.
+- Bing et al, also have many related data products and lexicons. 
+
 ```{r, eval = FALSE}
 tidytext::get_sentiments("bing")
 get_sentiments("bing") |>
@@ -301,6 +308,11 @@ LMlex |>
 
 
 ### Puts each word into categories based on the evolutionarily created emotions.
+
+- aka **EmoLex**
+- From the documentation ""It was the first word-emotion association lexicon, with entries for eight basic emotions as well as positive and negative sentiment. It still remains the largest such lexicon. Prior work largely focused on positive and negative sentiment."
+
+
 ```{r, eval = FALSE}
 tidytext::get_sentiments("nrc")
 get_sentiments("nrc") |>
@@ -919,6 +931,13 @@ Again, a software developper take on handling data.  Light in statistics but hea
 
 
  
+
+## Some Papers
+
+#### Very detailed overview of sentiment analysis from the NRC group.:
+
+- **Saif M. Mohammad, (2020) "Sentiment Analysis: Automatically Detecting
+Valence, Emotions, and Other Affectual States from Text" https://arxiv.org/pdf/2005.11882.pdf **
 
 ## Some Papers
 
