@@ -2,7 +2,7 @@
 title: "Statistical Language Modelling with R"
 author: 
   name: "Dave Campbell,   <br> Bank of Canada and Carleton University,     <br>   [linkedin.com/in/drdavecampbell/](https://www.linkedin.com/in/drdavecampbell/)  <br> Twitter: @iamdavecampbell <br> GitHub: @iamdavecampbell"
-date: "23/05/2022"
+date: "23/06/2022"
 output:  
    ioslides_presentation:
       widescreen: true
@@ -31,7 +31,7 @@ install.packages(c("tidyverse","tidytext",
                    "janitor","lubridate",
                     "qdap","tools"))
 # packages mentioned:
-install.packages(c("text2vec","textdata", "word2vec"))
+install.packages(c("text2vec","textdata", "word2vec", "sentiment.ai"))
 ```
 
 
@@ -62,9 +62,11 @@ library(janitor) ## make tables look nice
 library(lubridate) ## deal with dates
 library(qdap) ## handle polarization for sentiment analysis
 library(tools) ## to make one plot title look nice
+
 library(text2vec)## will use if we get to word embeddings
 library(textdata)## will use if we get to word embeddings
 library(word2vec)## will use if we get to word embeddings
+library(sentiment.ai) # for sentiment word embedding models
 ```
 
 
@@ -198,6 +200,13 @@ Ask Me later about webscraping details if you like.
 
 new_speeches = read_csv(file = "new_speeches.csv")
 old_speeches = read_csv(file = "old_speeches.csv")
+
+
+```
+```{r,echo = FALSE, eval = FALSE, message = FALSE, warning = FALSE, results='hide'}
+
+new_speeches = read_csv(file = "https://people.math.carleton.ca/~davecampbell/workshop/new_speeches.csv")
+old_speeches = read_csv(file = "https://people.math.carleton.ca/~davecampbell/workshop/old_speeches.csv")
 
 
 ```
@@ -832,13 +841,19 @@ Download (1.5GB) pre-trained vectors trained on part of Google News dataset (abo
 ```{r, eval = FALSE}
  
 library(textdata)
+# download via the library:
+embedding_glove6b(manual_download = FALSE)
+# or
+#download directly from "http://nlp.stanford.edu/data/glove.6B.zip"
 # 822.2 MB download: 2010 Wikipedia dump with 1 billion tokens
-glove6b = embedding_glove6b(dimensions = 300,
+glove6b = embedding_glove6b(dimensions = 300, dir = getwd(),
          manual_download=TRUE, return_path=TRUE)
  
+glove6bMat = as.matrix(glove6b[,-1],dimnames = list(glove6b[,1],colnames(glove6b[,-1])))
+ 
 # find nearby words in embedding space
-Word_of_interest = glove6b["payment", , drop = FALSE]
- text2vec::sim2(x = glove6b, 
+Word_of_interest = glove6bMat["payment",]
+ text2vec::sim2(x = glove6bMat,
                 y = Word_of_interest,
                 method="cosine")
  
@@ -917,8 +932,63 @@ Given an imprecise Bank speech quote, which year is it from?
 - Run the imprecise quote through the model to estimate the year it was spoken.
 
 
+## Installing a Pre-Trained Word Embedding model
 
- 
+
+Using a pre-trained word embedding language model...
+
+It can be tricky to install.  R needs to install and use models built in python and tensorflow
+```{r, eval = FALSE}
+library(sentiment.ai)
+```
+- I tried on Windows, Mac, and Linux and only found success on Linux if I first installed tensorflow and keras libraries and software:
+
+```{r, eval = FALSE}
+
+tensorflow::install_tensorflow()
+keras::install_keras()
+
+```
+
+## Installing a Pre-Trained Word Embedding model Part 2
+
+```{r, eval = FALSE}
+
+# the first time you run it you need to do this:
+# Load the package
+library(sentiment.ai)
+library(SentimentAnalysis)
+library(sentimentr)
+# the first time you set up the library you need to do this:
+install_sentiment.ai()
+#It installs python with numpy, tensorflow, tensorboard,...
+
+```
+
+
+## Testing it out
+
+
+```{r, eval = FALSE}
+
+## try a few sentences and extract the polarity:
+text2test = c("This workshop is bad.",
+               "This workshop is not great.", 
+              "This workshop is seldom bad.", 
+              "This workshop is ok", 
+              "This workshop is hardly very good", 
+              "This workshop is very seldom very good", 
+              "This workshop is great", 
+              "This workshop is really good", 
+              "This workshop is the absolute best")
+         
+sentiment_score(text2test) 
+polarity(text2test, 
+         polarity.frame = polarity_frame)$all
+
+```
+
+```
 
 ## Great Books
 
